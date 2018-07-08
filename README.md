@@ -1,8 +1,9 @@
 # hub
 
  #### 1. Prerequisite
- ##### 1.1In order to run this repo it is necessary to have mosquitto and mysql installed
+In order to run this repo it is necessary to have mosquitto and mysql installed
  #### 2. Instalation
+ ##### 2.2. Install modules
  ##### 2.1. Clone the code repository:
  `git clone https://github.com/bentovsky/hub.git
  ##### 2.2. Install modules
