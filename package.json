@@ -1,0 +1,20 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "sensors app",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "body-parser": "*",
+    "express": "*",
+    "mqtt": "^2.18.0",
+    "mysql": "^2.15.0",
+    "mysqldump": "^1.4.2",
+    "node-mysql-importer": "0.0.10",
+    "serialport": "^6.2.0"
+  },
+  "author": "bento",
+  "license": "ISC"
+}
