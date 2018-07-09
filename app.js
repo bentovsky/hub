@@ -33,9 +33,10 @@ mysql.setup('root','','localhost','sensors');
 
 //connectmqtt('data',mqttclient,database);
 
+
 mysql.dropDB(function(ver){
     if(ver==1){
-        countDiff();
+       countDiff();
     }
 });
 
@@ -369,23 +370,4 @@ function splitJSON(received){
     console.log(configJSON[0]);
     console.log(actionJSON[0]);
     console.log(valuesJSON[0]);
-}
-    
-
-
-
-//RECEBER MATRIZ EM STRING1
-function buildmatrix(matrix,sizeX,sizeY){
-    var finalMatrix = [];
-    var count = 0;
-    var array = JSON.parse("[" + matrix + "]");
-    for (var i = 0; i < sizeX; i++) {
-        finalMatrix[i]=[];
-        for (var j = 0; j < sizeY; j++) {
-            finalMatrix[i][j] = array[count];
-            count++;
-        }   
-    }
-    console.log(finalMatrix)
-
 }
