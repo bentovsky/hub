@@ -45,6 +45,7 @@ mysql.dropDB(function(ver){
 serial.on("open", function () { 
    console.log('CONNECTED TO SERIAL');
    var msg = [];
+   var last=[];
    var findAllopen = [];
    var findAllclose = [];
    var node=0;
@@ -52,83 +53,82 @@ serial.on("open", function () {
    var tmp2=[];
    var initStr=[];
    var filterStr=[];
+   var error = 0;
+   var open = [];
+   var count=0;
+   var msgJSON=[]
 
-   serial.on('error', function(err) {
+    serial.on('error', function(err) {
         console.log('Error: ', err.message);
     })
   
-   serial.on('data', function (data) {
+    serial.on('data', function (data) {
+
+
+        var data2 = [];
         var incoming = data.toString();
         incoming = incoming.replace(/(\r\n|\n|\r)/gm, "");
         incoming = incoming.replace(" ", "");
+        // console.log("Incoming "+incoming);
+        // console.log("ultimo char: "+incoming[incoming.length-1]);
+
+
         msg += incoming;
-        if (msg.search('}')!=-1){
-            findAllclose = msg.match(/}/g);
-            findAllopen = msg.match(/{/g);
-            if (findAllclose.length == 4){
-                console.log('ENTROU')
-                tmp1 = msg;
-                if(tmp2.length!=0){
-                    msg = msg.substr(0,msg.lastIndexOf('}')+1);
-                    msg = tmp2+msg;
-                    console.log(msg);
-                    var msgJSON = JSON.parse(msg);
-                    tmp2=[];
-                }
-                else{
-                    initStr = tmp1.substr(msg.lastIndexOf('}')+1);
-                    
-                    if(initStr.length!=0){
-                        msg = msg.substr(0,msg.lastIndexOf('}')+1);
-                        console.log(msg);
-                        var msgJSON = JSON.parse(msg);
-                        tmp2 = initStr;
-                        initStr=[];
-                    }
-                    else{
-                        console.log(msg);
-                        var msgJSON = JSON.parse(msg);
-                    }
-                }
+        if (isOverSending(msg)) {
+            console.log("Recebeu");
+            console.log(msg);
+            msgJSON = JSON.parse(msg);
+            console.log(msgJSON)
+            if(searchJSON(msgJSON,verifyJSON)==0){
+                initiateVerify(verifyJSON,msgJSON.node);
+                initiateMatrix(finalJSON,msgJSON);
+                node=msgJSON.node;
+            }
+            if(msgJSON.sensors[0].values.length!=0){
+                var values = msgJSON.sensors[0].values;
+                var position = parseInt(msgJSON.sensors[0].name.slice(3));
+                updateMatrix(finalJSON,msgJSON.node,values,position);
+            }
+            var index=getKeyIndex(msgJSON.node)
+            verifyJSON[index].count=verifyJSON[index].count+1
+            console.log(verifyJSON)
+            //NUMBER OF COLUMNS
+            if(verifyJSON[index].count==49){
+                console.log(finalJSON[0]);
+                var matrix = finalJSON[0].sensor[0].matrix;
 
-                console.log(msgJSON);
+                mysql.addToDB(finalJSON,matrix,function(inserted){
+            if (inserted==1){                            
+                console.log('ADDED TO DB');
+            }
+            });
 
-                if(searchJSON(msgJSON,verifyJSON)==0){
-                    initiateVerify(verifyJSON,msgJSON.node);
-                    initiateMatrix(finalJSON,msgJSON);
-                    node=msgJSON.node;
-                }
-                if(msgJSON.sensors[0].values.length!=0){
-                    var values = msgJSON.sensors[0].values;
-                    var position = parseInt(msgJSON.sensors[0].name.slice(3));
-                    updateMatrix(finalJSON,msgJSON.node,values,position);
-                }
-                
-                var index=getKeyIndex(msgJSON.node)
-                verifyJSON[index].count=verifyJSON[index].count+1
-                console.log(verifyJSON)
-                //NUMBER OF COLUMNS
-                if(verifyJSON[index].count==49){
-                    
-                    console.log(finalJSON[0]);
-                    var matrix = finalJSON[0].sensor[0].matrix;
+            verifyJSON[index].count=0
+            }
+            msg = "";
+        }
 
-                    mysql.addToDB(finalJSON,matrix,function(inserted){
-                        if (inserted==1){                            
-                            console.log('ADDED TO DB');
-                        }
-                    });
-                    
-                    verifyJSON[index].count=0
-                }
-
-                findAllclose=[];
-                findAllopen=[];
-                msg=[];
-            };
-        };
     });
 });
+
+
+function isOverSending(str2) {
+    
+    if (str2[0] === '{') {
+        console.log(str2)
+      if ((str2.split("{").length - 1) === (str2.split("}").length - 1)) {
+        return true;
+      }
+      else {
+        return false;
+      }
+    }
+    else {
+      msg = "";
+    }
+  
+  }
+
 
 function searchJSON(msgJSON,verifyJSON){
     for (var i = 0; i < verifyJSON.length; i++) {
