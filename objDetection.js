@@ -1,25 +1,44 @@
-var mqtt = require('./models/mqtt');
+var mqtt = require('mqtt');
+var http = require('http');
+var express = require('express');
+var WebSocketClient = require('websocket').client;
+var mqttModel = require('./models/mqtt');
 var tagID = require('./models/tagID');
 
 
+var client = new WebSocketClient();
 
-mqtt.setup('bento','password','localhost',function(mqtt){
+client.connect('ws://192.168.0.149:3000/', 'echo-protocol');
+
+
+client.on('connectFailed', function(error) {
+    console.log('Connect Error: ' + error.toString());
+});
+
+client.on('connect', function(connection) {
+    console.log('CONNECTED')
+    client.send('HELLO NUNO');
+})
+
+
+mqttModel.setup('bento','password','localhost',function(mqtt){
     receivingClient=mqtt;
-},1883);
+},1885);
 
-mqtt.setup('bento','password','localhost',function(mqtt){
-    sendingClient=mqtt;
-},1883);
 
-mqtt.subscribe(receivingClient,'sensor-Listing');
-mqtt.subscribe(receivingClient,'sensor-ReceivedValue');
-mqtt.subscribe(receivingClient,'sensor-ReceivedConfig');
-mqtt.subscribe(receivingClient,'sensor-ReceivedAction');
-mqtt.subscribe(receivingClient,'sensor-NodeErrors');
+sendingClient=mqtt.connect('mqtt://192.168.0.173:1883')
+
+
+
+mqttModel.subscribe(receivingClient,'sensor-Listing');
+mqttModel.subscribe(receivingClient,'sensor-ReceivedValue');
+mqttModel.subscribe(receivingClient,'sensor-ReceivedConfig');
+mqttModel.subscribe(receivingClient,'sensor-ReceivedAction');
+mqttModel.subscribe(receivingClient,'sensor-NodeErrors');
 
 
 var count=0;
-mqtt.message(receivingClient,function(message,topic){
+mqttModel.message(receivingClient,function(message,topic){
     if(topic=='sensor-ReceivedValue'){
         
         var key = Object.keys(message);
@@ -31,14 +50,13 @@ mqtt.message(receivingClient,function(message,topic){
          tagID.countObj(finalMatrix,function(n_objects){
             console.log('NUMBER OF OBJECTS '+n_objects)
             message+=', "objNumber":'+n_objects+'}';
+            // client.send(message.toString());
             message=JSON.parse(message)
-
         });
+
     }
     var send = JSON.stringify(message)
-    console.log(send);
-    mqtt.publish(sendingClient,'data',send)
-
+    mqttModel.publish(sendingClient,topic,send)
 });
 
 

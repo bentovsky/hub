@@ -38,31 +38,31 @@ var pool = exports.setup = function(user,pwd,host,database){
 
 exports.addToDB = function(receivedJSON,matrix,callback){
     pool.getConnection(function(err, connection){  
-        connection.query("SELECT * FROM Listing WHERE nodeID="+receivedJSON[0].node, function(err, rows){
+        connection.query("SELECT * FROM listing WHERE nodeID="+receivedJSON[0].node, function(err, rows){
             if (rows.length==0){
-                var addSensor = "INSERT INTO Listing (nodeID,type,state) "+
+                var addSensor = "INSERT INTO listing (nodeID,type,state) "+
                 "SELECT * FROM (SELECT "+receivedJSON[0].node+",'"+receivedJSON[0].sensor[0].name+"',1) AS tmp "+
-                "WHERE NOT EXISTS (SELECT nodeID FROM Listing WHERE nodeID="+receivedJSON[0].node+");";
+                "WHERE NOT EXISTS (SELECT nodeID FROM listing WHERE nodeID="+receivedJSON[0].node+");";
 
                 connection.query(addSensor, function(err, rows){
                     if(err) throw err;
                     else {
-                        console.log('Listing - SENSOR INSERTED');
-                        addReceivedValue(receivedJSON,matrix,callback);
+                        console.log('listing - SENSOR INSERTED');
+                        addreceivedValue(receivedJSON,matrix,callback);
                         connection.release();      
                     }
                 });
             }
             else {
 
-                var updateSensor = "UPDATE Listing SET type='" + receivedJSON[0].sensor[0].name + "', state=0 " +
+                var updateSensor = "UPDATE listing SET type='" + receivedJSON[0].sensor[0].name + "', state=0 " +
                 "WHERE nodeID=" + receivedJSON[0].node +";";        
 
                 connection.query(updateSensor, function(err, rows){
                     if(err) throw err;
                     else {
-                        console.log('Listing - SENSOR UPDATED');
-                        addReceivedValue(receivedJSON,matrix,callback);
+                        console.log('listing - SENSOR UPDATED');
+                        addreceivedValue(receivedJSON,matrix,callback);
                         connection.release();         
                     }
                 });
@@ -72,52 +72,52 @@ exports.addToDB = function(receivedJSON,matrix,callback){
 }
 
 
-function addReceivedValue(receivedJSON,matrix,callback){
+function addreceivedValue(receivedJSON,matrix,callback){
     pool.getConnection(function(err, connection){
-        var addValue = "INSERT INTO ReceivedValue (matrix,sizeX,sizeY,orientation,SensorID) SELECT '"+
+        var addValue = "INSERT INTO receivedValue (matrix,sizeX,sizeY,orientation,sensorID) SELECT '"+
         matrix+"', "+matrix.length+", "+matrix[0].length+
-        ", 'left/right', l.ListingID FROM Listing l WHERE l.nodeID="+receivedJSON[0].node+";"
+        ", 'left/right', l.listingID FROM listing l WHERE l.nodeID="+receivedJSON[0].node+";"
 
         connection.query(addValue, function(err, rows){
             if(err)
                 throw err;
             else{
-                console.log('ReceivedValue - VALUE INSERTED');
+                console.log('receivedValue - VALUE INSERTED');
                 connection.release();
             }
-            addReceivedConfig(receivedJSON,callback);
+            addreceivedConfig(receivedJSON,callback);
         });
     });
 }
 
-function addReceivedConfig(receivedJSON,callback){
+function addreceivedConfig(receivedJSON,callback){
     pool.getConnection(function(err, connection){
         
-        var searchConfig = "SELECT * FROM ReceivedConfig "+
-        "WHERE SensorID = (SELECT ListingID FROM Listing WHERE nodeID="+receivedJSON[0].node+");"
+        var searchConfig = "SELECT * FROM receivedConfig "+
+        "WHERE sensorID = (SELECT listingID FROM listing WHERE nodeID="+receivedJSON[0].node+");"
         connection.query(searchConfig, function(err, rows){
             if (err)
                 throw err;
             else{
                 if(rows.length==0){
-                    var addConfig = "INSERT INTO ReceivedConfig(type,value,SensorID) "+
+                    var addConfig = "INSERT INTO receivedConfig(type,value,sensorID) "+
                     "SELECT '"+receivedJSON[0].config[0].name+"',"+receivedJSON[0].config[0].values+","+
-                    "l.ListingID from Listing l WHERE l.nodeID="+receivedJSON[0].node+";";  
+                    "l.listingID from listing l WHERE l.nodeID="+receivedJSON[0].node+";";  
                     connection.query(addConfig, function(err, rows){
-                        console.log('ReceivedConfig - CONFIG INSERTED');
-                        addReceivedAction(receivedJSON,callback);
+                        console.log('receivedConfig - CONFIG INSERTED');
+                        addreceivedAction(receivedJSON,callback);
                         connection.release();  
                     });
                 }
                 else{
 
-                    var updateConfig = "UPDATE ReceivedConfig SET type='" + receivedJSON[0].config[0].name +
+                    var updateConfig = "UPDATE receivedConfig SET type='" + receivedJSON[0].config[0].name +
                     "', value="+receivedJSON[0].config[0].values+
-                    " WHERE SensorID=" + rows[0].SensorID +";";    
+                    " WHERE sensorID=" + rows[0].sensorID +";";    
 
                     connection.query(updateConfig, function(err, rows){
-                        console.log('ReceivedConfig - CONFIG UPDATED');
-                        addReceivedAction(receivedJSON,callback);
+                        console.log('receivedConfig - CONFIG UPDATED');
+                        addreceivedAction(receivedJSON,callback);
                         connection.release();  
                     });
                 }
@@ -128,22 +128,22 @@ function addReceivedConfig(receivedJSON,callback){
 
 
 
-function addReceivedAction(receivedJSON,callback){
+function addreceivedAction(receivedJSON,callback){
     pool.getConnection(function(err, connection){
 
-        var searchAction = "SELECT * FROM ReceivedAction "+
-        "WHERE SensorID = (SELECT ListingID FROM Listing WHERE nodeID="+receivedJSON[0].node+");"
+        var searchAction = "SELECT * FROM receivedAction "+
+        "WHERE sensorID = (SELECT listingID FROM listing WHERE nodeID="+receivedJSON[0].node+");"
 
         connection.query(searchAction, function(err, rows){
             if (err)
                 throw err;
             else{
                 if(rows.length==0){
-                    var addAction = "INSERT INTO ReceivedAction(type,value,SensorID) "+
+                    var addAction = "INSERT INTO receivedAction(type,value,sensorID) "+
                     "SELECT '"+receivedJSON[0].action[0].name+"', '"+receivedJSON[0].action[0].values+"',"+
-                    "l.ListingID from Listing l WHERE l.nodeID="+receivedJSON[0].node+";";    
+                    "l.listingID from listing l WHERE l.nodeID="+receivedJSON[0].node+";";    
                     connection.query(addAction, function(err, rows){
-                        console.log('ReceivedAction - ACTION INSERTED');
+                        console.log('receivedAction - ACTION INSERTED');
                         inserted = 1;
                         callback(inserted);
                         connection.release();  
@@ -151,11 +151,11 @@ function addReceivedAction(receivedJSON,callback){
                 }
                 else{
                    
-                    var updateAction = "UPDATE ReceivedAction SET type='" + receivedJSON[0].action[0].name +
+                    var updateAction = "UPDATE receivedAction SET type='" + receivedJSON[0].action[0].name +
                     "', value='"+receivedJSON[0].action[0].values+
-                    "' WHERE SensorID=" + rows[0].SensorID +";";    
+                    "' WHERE sensorID=" + rows[0].sensorID +";";    
                     connection.query(updateAction, function(err, rows){
-                        console.log('ReceivedAction - ACTION UPDATED');
+                        console.log('receivedAction - ACTION UPDATED');
                         inserted = 1;
                         callback(inserted);
                         connection.release();  
@@ -178,15 +178,15 @@ function addReceivedAction(receivedJSON,callback){
 exports.dropDB = function(callback){
     pool.getConnection(function(err, connection){
         var ver = 0;
-        var clearTables =["DELETE FROM ReceivedValue","DELETE FROM ReceivedConfig",
-        "DELETE FROM ReceivedAction",
-        "DELETE FROM NodeErrors",
-        "DELETE FROM Listing",
-        "ALTER TABLE Listing AUTO_INCREMENT=1;",
-        "ALTER TABLE ReceivedValue AUTO_INCREMENT=1;",
-        "ALTER TABLE NodeErrors AUTO_INCREMENT=1;",
-        "ALTER TABLE ReceivedConfig AUTO_INCREMENT=1;",
-        "ALTER TABLE ReceivedAction AUTO_INCREMENT=1;"]
+        var clearTables =["DELETE FROM receivedValue","DELETE FROM receivedConfig",
+        "DELETE FROM receivedAction",
+        "DELETE FROM nodeErrors",
+        "DELETE FROM listing",
+        "ALTER TABLE listing AUTO_INCREMENT=1;",
+        "ALTER TABLE receivedValue AUTO_INCREMENT=1;",
+        "ALTER TABLE nodeErrors AUTO_INCREMENT=1;",
+        "ALTER TABLE receivedConfig AUTO_INCREMENT=1;",
+        "ALTER TABLE receivedAction AUTO_INCREMENT=1;"]
 
 
         for (let i = 0; i < clearTables.length; i++) {
@@ -368,7 +368,7 @@ exports.convertTableToJSON = function(table,callback){
 
 /**
  * 
- * @desc Check if the Listing table is empty
+ * @desc Check if the listing table is empty
  * @callback callback 
  */
 exports.isEmpty = function(callback){
@@ -376,7 +376,7 @@ exports.isEmpty = function(callback){
     var emptyStr=[];
     var isEmpty = 0;
     pool.getConnection(function(err, connection){
-        connection.query('SELECT * FROM Listing', function(err, rows){
+        connection.query('SELECT * FROM listing', function(err, rows){
             if(rows.length==0){
                 isEmpty = 1;
             }
