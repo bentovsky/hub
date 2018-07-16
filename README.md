@@ -17,7 +17,7 @@ In order to run this repo it is necessary to have mosquitto and mysql installed
 
  **2. Instalation**
  - 2.1. Clone the code repository:
-Execute `git clone https://github.com/bentovsky/hub.git´
+Execute `git clone https://github.com/bentovsky/hub.git`
  - 2.2. Install modules:
 Inside the project's directory execute `npm install`
  - 2.3. Import database.sql file:
