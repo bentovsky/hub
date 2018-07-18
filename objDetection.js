@@ -1,68 +1,82 @@
-var mqtt = require('mqtt');
 var http = require('http');
 var express = require('express');
 var WebSocketClient = require('websocket').client;
-var mqttModel = require('./models/mqtt');
+var mqtt = require('./models/mqtt');
 var tagID = require('./models/tagID');
+var io = require('socket.io-client');
 
+var url = 'http://192.168.0.149:3000';
+var socket;
+socket = io.connect(url);
 
-var client = new WebSocketClient();
-
-client.connect('ws://192.168.0.149:3000/', 'echo-protocol');
-
-
-client.on('connectFailed', function(error) {
-    console.log('Connect Error: ' + error.toString());
-});
-
-client.on('connect', function(connection) {
-    console.log('CONNECTED')
-    client.send('HELLO NUNO');
-})
-
-
-mqttModel.setup('bento','password','localhost',function(mqtt){
+mqtt.setup('bento','password','localhost',function(mqtt){
     receivingClient=mqtt;
-},1885);
+});
 
+mqtt.setup('','','192.168.0.173',function(mqtt){
+    sendingClient=mqtt;
+});
 
-sendingClient=mqtt.connect('mqtt://192.168.0.173:1883')
+mqtt.setup('bento','password','localhost',function(mqtt){
+    receivingManager=mqtt;
+},1885)
 
+mqtt.subscribe(receivingManager,'configMode');
+mqtt.subscribe(receivingClient,'sensor-listing');
+mqtt.subscribe(receivingClient,'sensor-receivedValue');
+mqtt.subscribe(receivingClient,'sensor-receivedConfig');
+mqtt.subscribe(receivingClient,'sensor-receivedAction');
+mqtt.subscribe(receivingClient,'sensor-nodeErrors');
 
-
-mqttModel.subscribe(receivingClient,'sensor-Listing');
-mqttModel.subscribe(receivingClient,'sensor-ReceivedValue');
-mqttModel.subscribe(receivingClient,'sensor-ReceivedConfig');
-mqttModel.subscribe(receivingClient,'sensor-ReceivedAction');
-mqttModel.subscribe(receivingClient,'sensor-NodeErrors');
-
-
-var count=0;
-mqttModel.message(receivingClient,function(message,topic){
-    if(topic=='sensor-ReceivedValue'){
-        
-        var key = Object.keys(message);
-        var finalMatrix = buildmatrix(message.matrix,message.sizeX,message.sizeY)
-
-        message = JSON.stringify(message).slice(0,-1);
-
-        
-         tagID.countObj(finalMatrix,function(n_objects){
-            console.log('NUMBER OF OBJECTS '+n_objects)
-            message+=', "objNumber":'+n_objects+'}';
-            // client.send(message.toString());
-            message=JSON.parse(message)
-        });
-
+mqtt.message(receivingManager,function(message,topic){
+    if(topic=='configMode'){
+        if(message=='on'){
+            var count=0;
+            mqtt.message(receivingClient,function(message,topic){
+                var send = message;
+                if(topic=='sensor-receivedValue'){
+                    message = JSON.parse(message);
+                    var key = Object.keys(message.body);
+                    var finalMatrix = buildmatrix(message.body.matrix,message.body.sizeX,message.body.sizeY)
+                    tagID.countObj(finalMatrix,function(n_objects,details){
+                        console.log(details)
+                        message["body"].metadata=details;
+                        message = JSON.stringify(message);
+                        send=message;
+                    });
+                }
+                mqtt.publish(sendingClient,topic,send)
+            });
+        }
+        if(message=='off'){
+            var count=0;
+            mqtt.message(receivingClient,function(message,topic){
+                var send = message;
+                if(topic=='sensor-receivedValue'){
+                    message = JSON.parse(message);
+                    var key = Object.keys(message.body);
+                    var finalMatrix = buildmatrix(message.body.matrix,message.body.sizeX,message.body.sizeY)
+                        
+                    
+                    tagID.countObj(finalMatrix,function(n_objects,details){
+                        console.log('NUMBER OF OBJECTS '+n_objects)
+                        console.log(details)
+                        message["body"].objNumber=n_objects
+                        message["body"].metadata=details
+                        socket.emit('teste', {"values": finalMatrix,"count":n_objects});
+                        message = JSON.stringify(message);
+                        send=message;
+                    });
+                }
+                mqtt.publish(sendingClient,topic,send)
+            });
+        }
     }
-    var send = JSON.stringify(message)
-    mqttModel.publish(sendingClient,topic,send)
+        
 });
 
 
 
-
-//RECEBER MATRIZ EM STRING1
 function buildmatrix(matrix,sizeX,sizeY){
     var finalMatrix = [];
     var count = 0;

@@ -1,3 +1,4 @@
+
 var mqtt = require('mqtt');
 
 /**
@@ -9,6 +10,7 @@ var mqtt = require('mqtt');
 * @callback callback
 */
 exports.setup = function(user,pwd,host,callback,port){
+
   if (port==undefined)
     port=1883; //MQTT DEFAULT PORT
   var opti={
@@ -63,7 +65,7 @@ exports.setup = function(user,pwd,host,callback,port){
  */
   exports.message = function(client,callback){
     client.on('message', (topic, message) => {
-      var received = JSON.parse(message.toString())
+      var received = message.toString();
       callback(received,topic);
     })
-  }
+}

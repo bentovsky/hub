@@ -6,6 +6,11 @@ var finalJSON = [];
 var verifyJSON = [];
 var countDB=[];
 var getmac = require('getmac')
+var msg = [];
+var interval=60000;
+
+
+//JSON com - "values":MATRIZ, "count":NUMERO DE OBJECTOS
 
 //////////////////////////////////////////////
 //    INITIALIZE DATABASE AND SERIALPORT    //
@@ -14,17 +19,15 @@ var getmac = require('getmac')
 
 var serial = new serialport('/dev/ttyUSB0', {
     baudRate: 115200,
-    //  parser: SerialPort.parser.readline("\n")
   });
-
-//////////////////////////////////////////////
-
-//RECEBER POR SERIAL DADOS DOS SENSORES
-
 
 
 mqtt.setup('bento','password','localhost',function(mqtt){
     client=mqtt;
+},1883);
+
+mqtt.setup('bento','password','localhost',function(mqtt){
+    deviceManager=mqtt;
 },1885);
 
 
@@ -33,10 +36,12 @@ mysql.setup('root','','localhost','sensors');
 
 //connectmqtt('data',mqttclient,database);
 
+mqtt.subscribe(deviceManager,'interval');
+
 
 mysql.dropDB(function(ver){
     if(ver==1){
-       countDiff();
+        countDiff();
     }
 });
 
@@ -45,35 +50,25 @@ mysql.dropDB(function(ver){
 
 serial.on("open", function () { 
    console.log('CONNECTED TO SERIAL');
-   var msg = [];
-   var last=[];
-   var findAllopen = [];
-   var findAllclose = [];
    var node=0;
    var count=0;
-   var tmp2=[];
-   var initStr=[];
-   var filterStr=[];
    var error = 0;
-   var open = [];
    var count=0;
-   var msgJSON=[]
 
     serial.on('error', function(err) {
         console.log('Error: ', err.message);
     })
   
     serial.on('data', function (data) {
-
-        var data2 = [];
         var incoming = data.toString();
-        console.log(incoming)
         incoming = incoming.replace(/(\r\n|\n|\r)/gm, "");
         incoming = incoming.replace(" ", "");
         msg += incoming;
-        if (isOverSending(msg)) {
-            console.log(msg)
-            msgJSON = JSON.parse(msg);
+        var out =isOverSending();
+        if (out.value) {
+            console.log(out.msg)
+            msgJSON = JSON.parse(out.msg);
+            console.log('--------------------')
             console.log(msgJSON)
             if(searchJSON(msgJSON,verifyJSON)==0){
                 initiateVerify(verifyJSON,msgJSON.node);
@@ -108,38 +103,35 @@ serial.on("open", function () {
 });
 
 
-function isOverSending(str2) {
-    var count = 0;
-    if (str2[0] === '{') {
-        // var open = str2.match(/{/g)
-        // var close = str2.match(/}/g)
-        // if(close!=null){
-        //     for (var i = 0; i < open.length; i++) {
-        //         var count = open[i]-close[i]
-        //         console.log(count)
-        //      }
-        // }
-        // console.log('---------------')
-        // console.log(open);
-        // console.log(close);
-        // console.log('---------------')
-        if ((str2.split("{").length - 1) === (str2.split("}").length - 1)){
-            //open=[];
-            //close=[];
-            return true;
-        }
-        else {
-            // console.log('---------------')
-            // console.log(str2)
-            // console.log('---------------')
-            // console.log(str2.split("}"));
-            // console.log('---------------')
-            return false;
-        }
+function isOverSending() {
+    var count=0;
+    var out={};
+    if (msg[0] === '{') {
+      for (let i = 0; i < msg.length; i++) {
+        const element = msg[i];
+  
+        if(msg[i]==='{')
+          count++;
+        if(msg[i]==='}')
+          count--;
+        
+          if (count===0) {
+            console.log(msg[i])
+            out.msg=msg.slice(0,i+1);
+            out.value=true;
+            msg=msg.slice(i+1);
+            return out;        
+          }
+      }
     }
     else {
       msg = "";
+      out.value=false;
+      return out;
     }
+    
+      out.value=false;
+      return out;
   
   }
 
@@ -175,9 +167,9 @@ function initiateVerify(verifyJSON,node){
 function initiateMatrix(indexJSON,msgJSON){
     var matrix = [];
     //MATRIX SIZE [I][J]
-    for (var i = 0; i < 11; i++) {
+    for (var i = 0; i < 50; i++) {
         matrix[i]=[];
-        for (var j = 0; j < 11; j++) {
+        for (var j = 0; j < 50; j++) {
             matrix[i][j]=0
         }
     }
@@ -245,14 +237,9 @@ function connectmqtt(topic){
     },60000); 
 }
 
-
 //ENVIAR DADOS POR MQTT
 
 function countDiff(){
-    var compare1=0;
-    var compare2=0;
-    var first=1;
-    var keyValues=[];
     var countDB=[];
     mysql.getCount(function(ver,initialArray){
         if(ver==1){
@@ -260,47 +247,62 @@ function countDiff(){
             countDB=initialArray;
         }
     })
-    var timer_emit = setInterval(function(){
-        mysql.getCount(function(ver,arrayCount){
-            mysql.isEmpty(function(isEmpty){
-                if(ver==1){
-                    if(first==1){
-                        for (var i = 0; i < arrayCount.length; i++) {
-                            keyValues.push(Object.keys(arrayCount[i][0]))
-                        }
-                        first=0;
-                    }
     
-                    if(countDB.length!=0){
-                        console.log('AFTER')
-                        sendMac();
-                        for (var i = 0; i < arrayCount.length; i++) {
-                            compare1=arrayCount[i][0][keyValues[i]];
-                            compare2=countDB[i][0][keyValues[i]];
-                            console.log('COMPARE1 - '+compare1)
-                            console.log('COMPARE2 - '+compare2)
-                            emit(compare1,compare2,keyValues[i]);
-                        }
-                        countDB = arrayCount;
-                    } 
+
+    var timer_emit = setInterval(timer,interval);
+    mqtt.message(deviceManager,function(message,topic){
+        if(topic=='interval'){
+            console.log('ENTROU--------------------')
+            clearInterval(timer_emit);
+            interval=parseInt(message)*1000;
+            console.log(interval)
+            timer_emit = setInterval(timer,interval);
+        }
+    })
     
-                    if(countDB.length==0){
-                        sendMac();
-                        console.log('MATRIX IS STILL EMPTY')
-                        for (var i = 0; i < arrayCount.length; i++) {
-                            compare1=arrayCount[i][0][keyValues[i]];
-                            //console.log(compare1)
-                            emit(compare1,0,keyValues[i]);
-                        }
-                        countDB = arrayCount;
-  
-                    }
-                }
-            })
-        })
-    },60000);
 }
 
+
+
+function timer(){
+    var compare1=0;
+    var compare2=0;
+    var first=1;
+    var keyValues=[];
+    mysql.getCount(function(ver,arrayCount){
+        mysql.isEmpty(function(isEmpty){
+            if(ver==1){
+                if(first==1){
+                    for (var i = 0; i < arrayCount.length; i++) {
+                        keyValues.push(Object.keys(arrayCount[i][0]))
+                    }
+                    first=0;
+                }
+
+                if(countDB.length!=0){
+                    console.log('AFTER')
+                    for (var i = 0; i < arrayCount.length; i++) {
+                        compare1=arrayCount[i][0][keyValues[i]];
+                        compare2=countDB[i][0][keyValues[i]];
+                        console.log('COMPARE1 - '+compare1)
+                        console.log('COMPARE2 - '+compare2)
+                        emit(compare1,compare2,keyValues[i]);
+                    }
+                    countDB = arrayCount;
+                } 
+
+                if(countDB.length==0){
+                    console.log('MATRIX IS STILL EMPTY')
+                    for (var i = 0; i < arrayCount.length; i++) {
+                        compare1=arrayCount[i][0][keyValues[i]];
+                        emit(compare1,0,keyValues[i]);
+                    }
+                    countDB = arrayCount;
+                }
+            }
+        })
+    })
+}
 
 function emit(compare1,compare2,keyValue){
     var compareRow = Math.abs(compare1 - compare2);
@@ -312,27 +314,28 @@ function emit(compare1,compare2,keyValue){
         console.log(compareRow)    
         if(compareRow==0&&result.value.length!=0){
             for (var i = 0; i < compare1; i++) {
-                var sendUpdate = result.value[i]
-                sendUpdate["action"]='update';
-                sendUpdate["table"]=keyValue;
-                console.log('--------------------------')
-                console.log(sendUpdate)
-                console.log('--------------------------')
+                var sendUpdate ={};
+                sendUpdate["command"]='update table '+keyValue;
+                sendUpdate["body"]=result.value[i]
+                //sendUpdate["table"]=keyValue;
                 mqtt.publish(client,topic,JSON.stringify(sendUpdate))
             }
         }
         if(compareRow!=0){
             for (var i = compare1-1; i > compare2-1; i--) {
                 console.log('insert')
-                var sendInsert = result.value[i]
-                sendInsert["action"]='insert';
-                sendInsert["table"]=keyValue;
+                var sendInsert = {};
+                sendInsert["command"]='insert table '+keyValue;
+                sendInsert["body"]=result.value[i];
+                //sendInsert["table"]=keyValue;
 
+                console.log('--------------------------')
+                console.log(JSON.stringify(sendInsert))
                 console.log('--------------------------')
                 console.log(sendInsert)
                 console.log('--------------------------')
                 mqtt.publish(client,topic,JSON.stringify(sendInsert));
-                if(Object.keys(sendInsert)[0]=='receivedValueID'){
+                if(Object.keys(sendInsert.body)[0]=='receivedValueID'){
                     mysql.dropTable('receivedValue');
                     countDB = [];
                 }
