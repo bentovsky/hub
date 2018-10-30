@@ -88,6 +88,8 @@ exports.countObj=function (matrix_,callback) { // propagacao de etiquetas
 
     }
 
+    console.log(matrix)
+    //filtering(matrix);
 
     if (dif.length < n_objects)
       n_objects = dif.length;
@@ -102,8 +104,7 @@ exports.countObj=function (matrix_,callback) { // propagacao de etiquetas
   console.log("Diferentes", dif);
 
   console.log("Number of objects: " + n_objects);
-
-  console.log(matrix);
+ 
   var aux = new Array();
   for (let i = 0; i < matrix.length; i++) {
     aux.push(matrix[i].slice());
@@ -116,7 +117,8 @@ exports.countObj=function (matrix_,callback) { // propagacao de etiquetas
   for (let i = 0; i < matrix.length; i++) {
     aux.push(matrix[i].slice());
   }
-
+  var erase=[];
+  var tmp=[];
   for (let i = 0; i < dif.length; i++) {
 
     loop1:
@@ -124,16 +126,48 @@ exports.countObj=function (matrix_,callback) { // propagacao de etiquetas
 
       for (let col = 2; col < ncol + 2; col++) {
         if (matrix[row][col] === dif[i]) {
-          perObjects[dif[i]] = calcuteObjectDetails(matrix,row,col);
+          
+          /****************APAGAR***************** */
+          if(calcuteObjectDetails(matrix,row,col).area<10){
+            erase.push(dif[i])
+          }
+          else{
+            perObjects[dif[i]]=calcuteObjectDetails(matrix,row,col);
+          }
+          /****************APAGAR***************** */
           break loop1;
-
         }
       }
     }
   }
 
+/****************APAGAR***************** */
+  console.log(erase);
+  n_objects=n_objects-erase.length;
+  var finalMatrix=[];
 
-  callback(n_objects,perObjects)
+  for (var i = 0; i < 15; i++) {
+    finalMatrix[i]=[];
+    for (var j = 0; j < 15; j++) {
+      finalMatrix[i][j]=0;
+    }
+  }
+
+  for (var i = 0; i < 15; i++) {
+    for (var j = 0; j < 15; j++) {
+      finalMatrix[i][j]=matrix[i][j];
+      for (var k = 0; k < erase.length; k++) {
+        if(finalMatrix[i][j]==erase[k])
+          finalMatrix[i][j]=0;
+      }
+      if(finalMatrix[i][j]!=0)
+        finalMatrix[i][j]=1;
+    }
+  }
+
+/****************APAGAR***************** */
+  console.log(finalMatrix)
+  callback(n_objects,perObjects,finalMatrix)
 
 
 }
@@ -422,4 +456,15 @@ function printMatrix(matrix) {
 
   }
 
+}
+
+
+function filtering(matrix){
+  for (let i = 0; i < matrix.length; i++) {
+    for (let j = 0; j < matrix[0].length; j++) {
+      if(matrix[i][j]!=0&&(matrix[i-1][j-1]==0&&matrix[i-1][j]==0&&matrix[i-1][j+1]==0&&matrix[i][j-1]==0&&matrix[i][j+1]==0&&matrix[i+1][j-1]==0&&matrix[i+1][j]==0&&matrix[i+1][j+1]==0))
+        matrix[i][j]=0;
+    }
+    
+  }
 }

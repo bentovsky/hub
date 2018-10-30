@@ -15,7 +15,9 @@ var pool = exports.setup = function(user,pwd,host,database){
         host     : host,
         user     : user,
         password : pwd,
-        database : database
+        database : database,
+        debug : false,
+        connectionLimit : 100
     });
 
     pool.getConnection(function(err,connection){
@@ -286,15 +288,10 @@ exports.getTables = function(callback){
         });
     });
 }
-/**
- * 
- * @desc Count the rows in each table
- * @callback callback 
- */
-exports.getCount = function(callback){
+
+var fct1=function(callback){
     var arrayCount = [];
     pool.getConnection(function(err, connection){
-
         connection.query('SHOW TABLES', function(err, tables){
             var pending = tables.length;
             for (var i = 0; i < tables.length; i++) {
@@ -311,6 +308,12 @@ exports.getCount = function(callback){
         })
     })
 }
+/**
+ * 
+ * @desc Count the rows in each table
+ * @callback callback 
+ */
+exports.getCount = fct1.bind(this)
 
 /**
  * 
@@ -340,7 +343,7 @@ exports.convertDBToJSON = function(callback){
                         ver=1;
                         connection.release();
                         callback(ver,sendJSON); //callback if all queries are processed
-                    }
+                    }s
                 });
             }
         });   

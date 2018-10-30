@@ -7,7 +7,7 @@ var verifyJSON = [];
 var countDB=[];
 var getmac = require('getmac')
 var msg = [];
-var interval=60000;
+var interval=30000;
 
 
 //JSON com - "values":MATRIZ, "count":NUMERO DE OBJECTOS
@@ -46,19 +46,16 @@ mysql.dropDB(function(ver){
 });
 
 
-
-
 serial.on("open", function () { 
    console.log('CONNECTED TO SERIAL');
    var node=0;
    var count=0;
-   var error = 0;
+   var error = 0;   
    var count=0;
 
     serial.on('error', function(err) {
         console.log('Error: ', err.message);
     })
-  
     serial.on('data', function (data) {
         var incoming = data.toString();
         incoming = incoming.replace(/(\r\n|\n|\r)/gm, "");
@@ -66,10 +63,10 @@ serial.on("open", function () {
         msg += incoming;
         var out =isOverSending();
         if (out.value) {
-            console.log(out.msg)
             msgJSON = JSON.parse(out.msg);
             console.log('--------------------')
             console.log(msgJSON)
+            console.log('--------------------')
             if(searchJSON(msgJSON,verifyJSON)==0){
                 initiateVerify(verifyJSON,msgJSON.node);
                 initiateMatrix(finalJSON,msgJSON);
@@ -82,15 +79,21 @@ serial.on("open", function () {
             }
             var index=getKeyIndex(msgJSON.node)
             verifyJSON[index].count=verifyJSON[index].count+1
-            console.log(verifyJSON)
-            //NUMBER OF COLUMNS
-            if(verifyJSON[index].count==49){
-                console.log(finalJSON[0]);
+            //console.log(verifyJSON)
+            //NUMBER OF COLUMNS----------------------------------------------------MUDAR
+            if(verifyJSON[index].count==14){
+                //console.log(finalJSON[0]);
                 var matrix = finalJSON[0].sensor[0].matrix;
-
+                console.log('----FINAL---')
+                console.log(matrix);
+                console.log('-------')
                 mysql.addToDB(finalJSON,matrix,function(inserted){
                     if (inserted==1){                            
                         console.log('ADDED TO DB');
+                        resetMatrix(finalJSON);
+                        console.log('-------')
+
+
                     }
                 });
 
@@ -116,7 +119,7 @@ function isOverSending() {
           count--;
         
           if (count===0) {
-            console.log(msg[i])
+            //console.log(msg[i])
             out.msg=msg.slice(0,i+1);
             out.value=true;
             msg=msg.slice(i+1);
@@ -167,9 +170,9 @@ function initiateVerify(verifyJSON,node){
 function initiateMatrix(indexJSON,msgJSON){
     var matrix = [];
     //MATRIX SIZE [I][J]
-    for (var i = 0; i < 50; i++) {
+    for (var i = 0; i <= 14; i++) {
         matrix[i]=[];
-        for (var j = 0; j < 50; j++) {
+        for (var j = 0; j <= 14; j++) {
             matrix[i][j]=0
         }
     }
@@ -177,7 +180,7 @@ function initiateMatrix(indexJSON,msgJSON){
     var action=[];
     var config=[];
     var sensor=[];
-
+    
     action.push({
         "name":msgJSON.actions[0].name,
         "values":msgJSON.actions[0].value
@@ -204,14 +207,34 @@ function initiateMatrix(indexJSON,msgJSON){
 function updateMatrix(finalJSON,node,values,position){
 
     var cont = 0;
-    while(cont){
-        if(finalJSON[cont].node==node)
-            break;
-        cont++;
-    }  
+    // while(cont){
+    //     if(finalJSON[cont].node==node)
+    //         break;
+    //     cont++;
+    //     console.log('AQUI')
+    // }  
     var matrix = finalJSON[cont].sensor[0].matrix;
+    console.log(position)
+    console.log(values)
+
+
     for (var i = 0; i < values.length; i++) {
-        matrix[values[i]][position]=1
+        matrix[values[i]][position]=1;
+    }
+
+    // console.log('----------------')
+    // console.log(matrix)
+    // console.log('----------------')
+
+}
+
+function resetMatrix(finalJSON){
+    var matrix = finalJSON[0].sensor[0].matrix;
+
+    for (var i = 0; i < matrix[0].length; i++) {
+        for (var j = 0; j < matrix[0].length; j++) {
+            matrix[i][j]=0
+        }
     }
 }
 
@@ -234,7 +257,7 @@ function connectmqtt(topic){
         if(client.connected){
             clearInterval(timer);
         }
-    },60000); 
+    },30000); 
 }
 
 //ENVIAR DADOS POR MQTT
@@ -249,28 +272,31 @@ function countDiff(){
     })
     
 
-    var timer_emit = setInterval(timer,interval);
-    mqtt.message(deviceManager,function(message,topic){
-        if(topic=='interval'){
-            console.log('ENTROU--------------------')
-            clearInterval(timer_emit);
-            interval=parseInt(message)*1000;
-            console.log(interval)
-            timer_emit = setInterval(timer,interval);
-        }
-    })
+    //var timer_emit = setInterval(timer,30000);
+    // mqtt.message(10000,function(message,topic){
+    //     if(topic=='interval'){
+    //         console.log('ENTROU--------------------')
+    //         clearInterval(timer_emit);
+    //         interval=parseInt(message)*1000;
+    //         console.log(interval)
+    //         timer_emit = setInterval(timer,interval);
+    //     }
+    // })
     
 }
 
 
 
-function timer(){
-    var compare1=0;
+//function timer(){
+    setInterval(function(){
+        var compare1=0;
     var compare2=0;
     var first=1;
     var keyValues=[];
+    console.log('TIMER')
     mysql.getCount(function(ver,arrayCount){
         mysql.isEmpty(function(isEmpty){
+            console.log(countDB.length)
             if(ver==1){
                 if(first==1){
                     for (var i = 0; i < arrayCount.length; i++) {
@@ -278,7 +304,6 @@ function timer(){
                     }
                     first=0;
                 }
-
                 if(countDB.length!=0){
                     console.log('AFTER')
                     for (var i = 0; i < arrayCount.length; i++) {
@@ -302,16 +327,14 @@ function timer(){
             }
         })
     })
-}
+    },30000);
+    
+//}
 
 function emit(compare1,compare2,keyValue){
     var compareRow = Math.abs(compare1 - compare2);
     var topic="sensor-"+keyValue
     mysql.convertTableToJSON(keyValue,function(result){
-        //console.log(result)
-        console.log('COMPARE ONE  '+compare1);
-        console.log('COMPARE TWO  '+compare2);
-        console.log(compareRow)    
         if(compareRow==0&&result.value.length!=0){
             for (var i = 0; i < compare1; i++) {
                 var sendUpdate ={};
@@ -319,21 +342,22 @@ function emit(compare1,compare2,keyValue){
                 sendUpdate["body"]=result.value[i]
                 //sendUpdate["table"]=keyValue;
                 mqtt.publish(client,topic,JSON.stringify(sendUpdate))
+                console.log('ENVIOU')
             }
         }
         if(compareRow!=0){
             for (var i = compare1-1; i > compare2-1; i--) {
-                console.log('insert')
+                // console.log('insert')
                 var sendInsert = {};
                 sendInsert["command"]='insert table '+keyValue;
                 sendInsert["body"]=result.value[i];
                 //sendInsert["table"]=keyValue;
 
-                console.log('--------------------------')
-                console.log(JSON.stringify(sendInsert))
-                console.log('--------------------------')
-                console.log(sendInsert)
-                console.log('--------------------------')
+                // console.log('--------------------------')
+                // console.log(JSON.stringify(sendInsert))
+                // console.log('--------------------------')
+                // console.log(sendInsert)
+                // console.log('--------------------------')
                 mqtt.publish(client,topic,JSON.stringify(sendInsert));
                 if(Object.keys(sendInsert.body)[0]=='receivedValueID'){
                     mysql.dropTable('receivedValue');
@@ -400,9 +424,9 @@ function splitJSON(received){
         "value":received[4].value
     });
 
-    console.log(listingJSON[0]);
-    console.log(errorsJSON[0]);
-    console.log(configJSON[0]);
-    console.log(actionJSON[0]);
-    console.log(valuesJSON[0]);
+    // console.log(listingJSON[0]);
+    // console.log(errorsJSON[0]);
+    // console.log(configJSON[0]);
+    // console.log(actionJSON[0]);
+    // console.log(valuesJSON[0]);
 }
