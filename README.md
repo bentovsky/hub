@@ -36,7 +36,7 @@ Inside the project's directory execute `mysql -u <username> -p <databasename> < 
   - Receives data from serial and trasnforms it in an array with the ID of the sending node, matrix's total lines, column that is being read and the values itselft.
   - Builds a matrix based on the values received column by column.
   - Creates an array of JSON objects (final_json) for each new ID that receives. The final_json variable as the following fields: 
-   *nodeID: ID of the sending node
+   - nodeID: ID of the sending node
    - sizeY: number of matrix's lines
    - sizeX: number of matrix's columns
    - counter: counter of receiving columns
