@@ -35,16 +35,19 @@ Inside the project's directory execute `mysql -u <username> -p <databasename> < 
  The `app.js` has the following functionalities:
   - Receives data from serial and trasnforms it in an array with the ID of the sending node, matrix's total lines, column that is being read and the values itselft.
   - Builds a matrix based on the values received column by column.
-  - Creates an array of JSON objects (final_json) for each new ID that receives. The final_json variable as the following fields: 
-   - nodeID: ID of the sending node
-   - sizeY: number of matrix's lines
-   - sizeX: number of matrix's columns
-   - counter: counter of receiving columns
-   - initial_value: first column received by the hub
-   - matrix:  matrix with all the received values
+  - Creates an array of JSON objects for each new ID that receives.
  - When all the data is received, the application will store it a database.
- - Finally the database is sent over MQTT each 20 seconds (default interval). This interval can be changed modifying the timer_emit variable.
+ - Finally the database is sent over MQTT each 20 seconds (default interval). 
  
  The `objDetct.js` has the following functionalities:
- 
+  - Subscribes to the topics that are being emitted by `app.js`.
+  - Calculates the number of objects that are on the matrix, using a tag identification algorithm
+  - Calculates several properties of each object (like area and perimeter) for later analisys
+  - Appends the new data to the older one and sends it through MQTT
+  
+**5. To be developed**
+ This application still needs some new functionalities and improvements like:
+  - Should be able to detect if the nodes and the root are working correctly
+  - Some tests and improvements are required when using several nodes.
+  - 
  
