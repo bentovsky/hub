@@ -63,7 +63,7 @@ exports.setup = function(user,pwd,host,callback,port){
  * @desc Get published message
  * @param {object} client object with the connection information
  */
-  exports.message = function(client,callback){
+  exports.message = function(client,callback){    
     client.on('message', (topic, message) => {
       var received = message.toString();
       callback(received,topic);

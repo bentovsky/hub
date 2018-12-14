@@ -22,7 +22,7 @@ var pool = exports.setup = function(user,pwd,host,database){
 
     pool.getConnection(function(err,connection){
         if (err){
-            console.log('\n CONNECTION TO DATABASE FAILED - WRONG SETUP \n');
+            console.log('\n CONNECTION TO DATABASE FAILED - WRONG SETUP \n',err);
             process.exit();
         }
     })
@@ -40,11 +40,11 @@ var pool = exports.setup = function(user,pwd,host,database){
 
 exports.addToDB = function(receivedJSON,matrix,callback){
     pool.getConnection(function(err, connection){  
-        connection.query("SELECT * FROM listing WHERE nodeID="+receivedJSON[0].node, function(err, rows){
+        connection.query("SELECT * FROM listing WHERE nodeID="+receivedJSON.nodeID, function(err, rows){
             if (rows.length==0){
-                var addSensor = "INSERT INTO listing (nodeID,type,state) "+
-                "SELECT * FROM (SELECT "+receivedJSON[0].node+",'"+receivedJSON[0].sensor[0].name+"',1) AS tmp "+
-                "WHERE NOT EXISTS (SELECT nodeID FROM listing WHERE nodeID="+receivedJSON[0].node+");";
+                var addSensor = "INSERT INTO listing (nodeID,state) "+
+                "SELECT * FROM (SELECT "+receivedJSON.nodeID+",1) AS tmp "+
+                "WHERE NOT EXISTS (SELECT nodeID FROM listing WHERE nodeID="+receivedJSON.nodeID+");";
 
                 connection.query(addSensor, function(err, rows){
                     if(err) throw err;
@@ -57,15 +57,15 @@ exports.addToDB = function(receivedJSON,matrix,callback){
             }
             else {
 
-                var updateSensor = "UPDATE listing SET type='" + receivedJSON[0].sensor[0].name + "', state=0 " +
-                "WHERE nodeID=" + receivedJSON[0].node +";";        
+                var updateSensor = "UPDATE listing SET type='', state=0 " +
+                "WHERE nodeID=" + receivedJSON.nodeID +";";
 
                 connection.query(updateSensor, function(err, rows){
                     if(err) throw err;
                     else {
                         console.log('listing - SENSOR UPDATED');
                         addreceivedValue(receivedJSON,matrix,callback);
-                        connection.release();         
+                        connection.release();
                     }
                 });
             }
@@ -74,99 +74,102 @@ exports.addToDB = function(receivedJSON,matrix,callback){
 }
 
 
-function addreceivedValue(receivedJSON,matrix,callback){
+function addreceivedValue(receivedJSON,callback){
     pool.getConnection(function(err, connection){
         var addValue = "INSERT INTO receivedValue (matrix,sizeX,sizeY,orientation,sensorID) SELECT '"+
-        matrix+"', "+matrix.length+", "+matrix[0].length+
-        ", 'left/right', l.listingID FROM listing l WHERE l.nodeID="+receivedJSON[0].node+";"
+        receivedJSON.matrix+"', "+receivedJSON.sizeX+", "+receivedJSON.sizeY+
+        ", 'left/right', l.ListingID FROM listing l WHERE l.nodeID="+receivedJSON.nodeID+";"
 
         connection.query(addValue, function(err, rows){
             if(err)
                 throw err;
             else{
                 console.log('receivedValue - VALUE INSERTED');
+                inserted = 1;
+                callback(inserted);
                 connection.release();
             }
-            addreceivedConfig(receivedJSON,callback);
+            //addreceivedAction(receivedJSON,callback);
+            //console.log('ReceivedAction - ACTION UPDATED');
         });
     });
 }
 
-function addreceivedConfig(receivedJSON,callback){
-    pool.getConnection(function(err, connection){
+// function addreceivedConfig(receivedJSON,callback){
+//     pool.getConnection(function(err, connection){
         
-        var searchConfig = "SELECT * FROM receivedConfig "+
-        "WHERE sensorID = (SELECT listingID FROM listing WHERE nodeID="+receivedJSON[0].node+");"
-        connection.query(searchConfig, function(err, rows){
-            if (err)
-                throw err;
-            else{
-                if(rows.length==0){
-                    var addConfig = "INSERT INTO receivedConfig(type,value,sensorID) "+
-                    "SELECT '"+receivedJSON[0].config[0].name+"',"+receivedJSON[0].config[0].values+","+
-                    "l.listingID from listing l WHERE l.nodeID="+receivedJSON[0].node+";";  
-                    connection.query(addConfig, function(err, rows){
-                        console.log('receivedConfig - CONFIG INSERTED');
-                        addreceivedAction(receivedJSON,callback);
-                        connection.release();  
-                    });
-                }
-                else{
+//         var searchConfig = "SELECT * FROM ReceivedConfig "+
+//         "WHERE sensorID = (SELECT listingID FROM listing WHERE nodeID="+receivedJSON[0].nodeID+");"
+//         connection.query(searchConfig, function(err, rows){
+//             if (err)
+//                 throw err;
+//             else{
+//                 if(rows.length==0){
+//                     var addConfig = "INSERT INTO ReceivedConfig(type,value,sensorID) "+
+//                     "SELECT '"+receivedJSON[0].config[0].name+"',"+receivedJSON[0].config[0].values+","+
+//                     "l.listingID from Listing l WHERE l.nodeID="+receivedJSON[0].nodeID+";";
+//                     connection.query(addConfig, function(err, rows){
+//                         console.log('ReceivedConfig - CONFIG INSERTED');
+//                         addreceivedAction(receivedJSON,callback);
+//                         connection.release();  
+//                     });
+//                 }
+//                 else{
 
-                    var updateConfig = "UPDATE receivedConfig SET type='" + receivedJSON[0].config[0].name +
-                    "', value="+receivedJSON[0].config[0].values+
-                    " WHERE sensorID=" + rows[0].sensorID +";";    
+//                     var updateConfig = "UPDATE receivedConfig SET type='" + receivedJSON[0].config[0].name +
+//                     "', value="+receivedJSON[0].config[0].values+
+//                     " WHERE sensorID=" + rows[0].sensorID +";";    
 
-                    connection.query(updateConfig, function(err, rows){
-                        console.log('receivedConfig - CONFIG UPDATED');
-                        addreceivedAction(receivedJSON,callback);
-                        connection.release();  
-                    });
-                }
-            }
-        })
-    });
-}
+//                     connection.query(updateConfig, function(err, rows){
+//                         console.log('receivedConfig - CONFIG UPDATED');
+//                         addreceivedAction(receivedJSON,callback);
+//                         connection.release();  
+//                     });
+//                 }
+//             }
+//         })
+//     });
+// }
 
 
 
-function addreceivedAction(receivedJSON,callback){
-    pool.getConnection(function(err, connection){
+// function addreceivedAction(receivedJSON,callback){
+//     pool.getConnection(function(err, connection){
 
-        var searchAction = "SELECT * FROM receivedAction "+
-        "WHERE sensorID = (SELECT listingID FROM listing WHERE nodeID="+receivedJSON[0].node+");"
+//         var searchAction = "SELECT * FROM ReceivedAction "+
+//         "WHERE sensorID = (SELECT listingID FROM Listing WHERE nodeID="+receivedJSON[0].nodeID+");"
 
-        connection.query(searchAction, function(err, rows){
-            if (err)
-                throw err;
-            else{
-                if(rows.length==0){
-                    var addAction = "INSERT INTO receivedAction(type,value,sensorID) "+
-                    "SELECT '"+receivedJSON[0].action[0].name+"', '"+receivedJSON[0].action[0].values+"',"+
-                    "l.listingID from listing l WHERE l.nodeID="+receivedJSON[0].node+";";    
-                    connection.query(addAction, function(err, rows){
-                        console.log('receivedAction - ACTION INSERTED');
-                        inserted = 1;
-                        callback(inserted);
-                        connection.release();  
-                    });
-                }
-                else{
+//         connection.query(searchAction, function(err, rows){
+//             if (err)
+//                 throw err;
+//             else{
+//                 if(rows.length==0){
+//                     var addAction = "INSERT INTO ReceivedAction(type,value,sensorID) "+
+//                     "SELECT '"+receivedJSON[0].action[0].name+"', '"+receivedJSON[0].action[0].values+"',"+
+//                     "l.listingID from Listing l WHERE l.nodeID="+receivedJSON[0].node+";";    
+//                     connection.query(addAction, function(err, rows){
+//                         console.log('ReceivedAction - ACTION INSERTED');
+//                         inserted = 1;
+//                         callback(inserted);
+//                         connection.release();  
+//                     });
+//                 }
+//                 else{
                    
-                    var updateAction = "UPDATE receivedAction SET type='" + receivedJSON[0].action[0].name +
-                    "', value='"+receivedJSON[0].action[0].values+
-                    "' WHERE sensorID=" + rows[0].sensorID +";";    
-                    connection.query(updateAction, function(err, rows){
-                        console.log('receivedAction - ACTION UPDATED');
-                        inserted = 1;
-                        callback(inserted);
-                        connection.release();  
-                    });
-                }  
-            }
-        })
-    });
-}
+//                     var updateAction = "UPDATE ReceivedAction SET type='" + receivedJSON[0].action[0].name +
+//                     "', value='"+receivedJSON[0].action[0].values+
+//                     "' WHERE sensorID=" + rows[0].sensorID +";";    
+//                     connection.query(updateAction, function(err, rows){
+//                         console.log('ReceivedAction - ACTION UPDATED');
+//                         inserted = 1;
+//                         callback(inserted);
+//                         connection.release();  
+//                     });
+//                 }  
+//             }
+//         })
+//     });
+// }
 
 
 
